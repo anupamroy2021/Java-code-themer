@@ -15,7 +15,8 @@
 
         /* Set base style for pre/code */
         #outputCode {
-            font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
+            /* FIX: Removed quotes from font-family list here to prevent injection conflict */
+            font-family: Fira Code, Consolas, Monaco, monospace;
             white-space: pre-wrap; /* Allows text to wrap */
             word-break: break-all;
             padding: 1rem;
@@ -44,6 +45,7 @@
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
             /* Uses a theme-specific function color for hover */
             background: var(--theme-function, #50FA7B); 
+            
         }
     </style>
 </head>
@@ -78,13 +80,15 @@
                     placeholder="public class MyClass { ... }" 
                     class="w-full p-4 border rounded-lg shadow-xl font-mono custom-scrollbar transition duration-300"
                 >
-public class HelloWorld {
-    // This is a single-line comment
+class MyRunnable implements Runnable {
+    public void run() {
+        System.out.println("Thread created by implementing Runnable interface is running.");
+    }
+
     public static void main(String[] args) {
-        int version = 10;
-        String message = "Hello, Dracula!"; 
-        System.out.println(message + " Version: " + version);
-        boolean isRunning = true;
+        MyRunnable runnable = new MyRunnable();
+        Thread thread = new Thread(runnable); // Pass the Runnable instance to a Thread object
+        thread.start(); // Starts the execution of the thread
     }
 }
                     </textarea>
@@ -128,9 +132,27 @@ public class HelloWorld {
             
             let activeColors = {}; // Holds the current theme colors
 
-            // Define reliable font styles for rich copy purposes
-            // Added margin: 0; padding: 0; and line-height: 1.5; to suppress external editor formatting.
-            const fontStylesForCopy = "font-family: 'Fira Code', 'Consolas', 'Monaco', monospace; font-size: 16px; margin: 0; padding: 0; line-height: 1.5;";
+            // Only define the static font styles for the rich copy container
+            const requiredFontStyles = "font-family: Fira Code, Consolas, Monaco, monospace; font-size: 16px; margin: 0; padding: 0; line-height: 1.5;";
+
+            // The original, clean Java code used for forced cleanup
+            const cleanJavaCode = `class MyRunnable implements Runnable {
+    public void run() {
+        System.out.println("Thread created by implementing Runnable interface is running.");
+    }
+
+    public static void main(String[] args) {
+        MyRunnable runnable = new MyRunnable();
+        Thread thread = new Thread(runnable); // Pass the Runnable instance to a Thread object
+        thread.start(); // Starts the execution of the thread
+    }
+}`;
+            
+            // *** CRITICAL CLEANUP STEP: Forcefully reset corrupted input ***
+            // If the input area contains the known rogue CSS string fragment, reset it to clean code.
+            if (javaInput.value.includes('padding: 0; line-height: 1.5;')) {
+                javaInput.value = cleanJavaCode;
+            }
 
             const themes = {
                 'dracula': {
@@ -248,19 +270,24 @@ public class HelloWorld {
             ];
 
             function wrapToken(match, color) {
-                // FIX: Use SINGLE quotes for the style attribute value (style='...').
-                // This prevents the Java string regex (which looks for double quotes)
-                // from accidentally matching and corrupting the injected HTML attributes.
-                const styleAttrValue = "color: " + color + "; display: inline; " + fontStylesForCopy;
-                return "<span style='" + styleAttrValue + "'>" + match + "</span>";
+                // Defensive fix: Escape double quotes inside the matched token (e.g., inside strings) 
+                const escapedMatch = match.replace(/"/g, '&quot;'); 
+                
+                // CRITICAL FIX: The style attribute is minimal now, only including color and display.
+                const styleAttrValue = "color: " + color + "; display: inline;"; 
+                
+                // Use single quotes for the attribute wrapper to avoid conflict with Java string double quotes.
+                return "<span style='" + styleAttrValue + "'>" + escapedMatch + "</span>";
             }
 
             function convertCode() {
                 let code = javaInput.value;
                 let styledCode = code;
 
-                // Only escape the ampersand (&)
-                styledCode = styledCode.replace(/&/g, '&amp;');
+                // Escape HTML entities that might be in the code
+                styledCode = styledCode.replace(/&/g, '&amp;')
+                                       .replace(/</g, '&lt;')
+                                       .replace(/>/g, '&gt;');
                                        
                 // --- Simple Tokenizing Logic ---
                 const lines = styledCode.split('\n');
@@ -357,7 +384,9 @@ public class HelloWorld {
                 `;
                 
                 // 2. Insert the styled code content into a <pre> tag.
-                //    All necessary structural and styling information for the "box" is on the <pre>.
+                // Note: The requiredFontStyles string itself is clean (no quotes in font names).
+                const fontStylesEscaped = requiredFontStyles.replace(/'/g, '&#39;');
+
                 tempRichDiv.innerHTML = `
                     <pre style="
                         margin: 0; 
@@ -370,7 +399,7 @@ public class HelloWorld {
                         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
                         border-radius: 0.5rem;
                         /* Text Formatting */
-                        ${fontStylesForCopy}
+                        ${fontStylesEscaped}
                         white-space: pre-wrap;
                         word-break: break-all;
                         line-height: 1.5;
