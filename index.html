@@ -122,6 +122,17 @@ class MyRunnable implements Runnable {
 
     </div>
 
+    <!-- Scroll to Top Button -->
+    <button 
+        id="scrollToTopBtn" 
+        class="fixed bottom-4 right-4 p-3 rounded-full shadow-xl transition-opacity duration-300 opacity-0 pointer-events-none transform hover:scale-110 active:scale-95" 
+        aria-label="Scroll to top"
+        style="z-index: 100;"
+    >
+        <!-- Arrow Up SVG Icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up"><path d="m18 15-6-6-6 6"/></svg>
+    </button>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const javaInput = document.getElementById('javaInput');
@@ -129,6 +140,7 @@ class MyRunnable implements Runnable {
             const convertButton = document.getElementById('convertButton');
             const copyButton = document.getElementById('copyButton'); 
             const themeSelector = document.getElementById('themeSelector');
+            const scrollToTopBtn = document.getElementById('scrollToTopBtn'); // New button element
             
             let activeColors = {}; // Holds the current theme colors
 
@@ -358,6 +370,10 @@ class MyRunnable implements Runnable {
                 copyButton.style.backgroundColor = theme.buttonCopyBg;
                 copyButton.style.color = theme.buttonCopyFg;
 
+                // 5.5. Update Button Styles (Scroll to Top)
+                scrollToTopBtn.style.backgroundColor = theme.buttonCopyBg;
+                scrollToTopBtn.style.color = theme.buttonCopyFg;
+
                 // 6. Re-convert the code with the new syntax colors
                 convertCode();
             }
@@ -447,6 +463,26 @@ class MyRunnable implements Runnable {
                     copyButton.style.color = originalFg;
                 }, 2000);
             }
+            
+            // --- Scroll to Top Logic ---
+            window.onscroll = function() {
+                // Show button when scrolled down 300px
+                if (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300) {
+                    scrollToTopBtn.classList.remove('opacity-0', 'pointer-events-none');
+                    scrollToTopBtn.classList.add('opacity-100', 'cursor-pointer');
+                } else {
+                    scrollToTopBtn.classList.remove('opacity-100', 'cursor-pointer');
+                    scrollToTopBtn.classList.add('opacity-0', 'pointer-events-none');
+                }
+            };
+
+            // Scroll to the top when the button is clicked
+            scrollToTopBtn.addEventListener('click', () => {
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+            });
 
 
             // Initial setup
