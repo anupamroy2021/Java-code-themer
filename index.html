@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Theme Java Code Themer</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Define a utility class for input/output text color change */
+        .theme-text-primary {
+            /* This color will be set dynamically by JavaScript */
+            color: var(--theme-fg, #F8F8F2); 
+        }
+
+        /* Set base style for pre/code */
+        #outputCode {
+            font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
+            white-space: pre-wrap; /* Allows text to wrap */
+            word-break: break-all;
+            padding: 1rem;
+            line-height: 1.5;
+            min-height: 200px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        /* Custom scrollbar styles */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            /* Uses a theme-specific input background color */
+            background: var(--theme-input-bg, #44475A); 
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            /* Uses a theme-specific comment color */
+            background: var(--theme-comment, #6272A4); 
+            border-radius: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            /* Uses a theme-specific function color for hover */
+            background: var(--theme-function, #50FA7B); 
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 font-[Inter]" style="background-color: #1e1f29; color: #F8F8F2;">
+
+    <!-- UPDATED: Changed container to be wider and responsive -->
+    <div class="w-full max-w-7xl mx-auto px-6">
+        <header class="text-center mb-6 pt-4">
+            <h1 class="text-4xl font-extrabold mb-2 tracking-tight theme-text-primary">Java ➡️ Code Themer</h1>
+            <p class="text-gray-400">Convert your standard Java code into a beautiful, syntax-highlighted format.</p>
+        </header>
+        
+        <!-- Theme Selector -->
+        <div class="flex justify-end mb-4">
+            <label for="themeSelector" class="mr-3 font-semibold text-sm theme-text-primary self-center">Select Theme:</label>
+            <select id="themeSelector" class="p-2 border rounded-lg shadow-md bg-gray-800 text-white focus:ring-blue-500 focus:border-blue-500 transition duration-200">
+                <option value="dracula">Dracula (Dark)</option>
+                <option value="solarized-light">Solarized Light</option>
+                <option value="github-light">GitHub Light</option>
+                <option value="monokai">Monokai (Dark)</option>
+                <option value="oceanic-next">Oceanic Next (Dark)</option>
+            </select>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- INPUT AREA -->
+            <div class="flex flex-col">
+                <label for="javaInput" class="text-lg font-semibold mb-2 theme-text-primary">Paste Your Java Code Here</label>
+                <textarea 
+                    id="javaInput" 
+                    rows="15" 
+                    placeholder="public class MyClass { ... }" 
+                    class="w-full p-4 border rounded-lg shadow-xl font-mono custom-scrollbar transition duration-300"
+                >
+public class HelloWorld {
+    // This is a single-line comment
+    public static void main(String[] args) {
+        int version = 10;
+        String message = "Hello, Dracula!"; 
+        System.out.println(message + " Version: " + version);
+        boolean isRunning = true;
+    }
+}
+                    </textarea>
+                <button 
+                    id="convertButton" 
+                    class="mt-4 px-6 py-3 font-bold rounded-lg shadow-md transition duration-200 transform hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-4"
+                >
+                    Convert Code
+                </button>
+            </div>
+
+            <!-- OUTPUT AREA -->
+            <div class="flex flex-col">
+                <div class="flex justify-between items-center mb-2">
+                    <label for="outputContainer" class="text-lg font-semibold theme-text-primary">Styled Output</label>
+                    <button 
+                        id="copyButton" 
+                        class="px-4 py-1 text-sm font-bold rounded-lg shadow-md transition duration-200"
+                    >
+                        Copy Code (Rich Format)
+                    </button>
+                </div>
+                <div 
+                    id="outputContainer" 
+                    class="w-full h-full border rounded-lg shadow-xl overflow-auto custom-scrollbar transition duration-300"
+                >
+                    <pre id="outputCode"></pre>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const javaInput = document.getElementById('javaInput');
+            const outputCode = document.getElementById('outputCode');
+            const convertButton = document.getElementById('convertButton');
+            const copyButton = document.getElementById('copyButton'); 
+            const themeSelector = document.getElementById('themeSelector');
+            
+            let activeColors = {}; // Holds the current theme colors
+
+            // Define reliable font styles for rich copy purposes
+            // Added margin: 0; padding: 0; and line-height: 1.5; to suppress external editor formatting.
+            const fontStylesForCopy = "font-family: 'Fira Code', 'Consolas', 'Monaco', monospace; font-size: 16px; margin: 0; padding: 0; line-height: 1.5;";
+
+            const themes = {
+                'dracula': {
+                    name: 'Dracula (Dark)',
+                    bg: '#282A36',
+                    fg: '#F8F8F2',
+                    comment: '#6272A4',
+                    keyword: '#FF79C6',
+                    type: '#8BE9FD',
+                    string: '#F1FA8C',
+                    literal: '#BD93F9',
+                    function: '#50FA7B',
+                    inputBg: '#343746',
+                    inputBorder: '#44475A',
+                    buttonMainBg: '#FF79C6',
+                    buttonMainFg: '#282A36',
+                    buttonCopyBg: '#50FA7B',
+                    buttonCopyFg: '#282A36',
+                },
+                'solarized-light': {
+                    name: 'Solarized Light',
+                    bg: '#FDF6E3', 
+                    fg: '#657B83', 
+                    comment: '#93A1A1', 
+                    keyword: '#859900', 
+                    type: '#2AA198', 
+                    string: '#2AA198', 
+                    literal: '#D33682', 
+                    function: '#268BD2', 
+                    inputBg: '#EEE8D5',
+                    inputBorder: '#DCDCDC',
+                    buttonMainBg: '#268BD2',
+                    buttonMainFg: '#FDF6E3',
+                    buttonCopyBg: '#859900',
+                    buttonCopyFg: '#FDF6E3',
+                },
+                'github-light': {
+                    name: 'GitHub Light',
+                    bg: '#FFFFFF', 
+                    fg: '#24292E', 
+                    comment: '#6A737D', 
+                    keyword: '#D73A49', 
+                    type: '#005CC5', 
+                    string: '#032F62', 
+                    literal: '#6F42C1', 
+                    function: '#6F42C1', 
+                    inputBg: '#F6F8FA',
+                    inputBorder: '#E1E4E8',
+                    buttonMainBg: '#28A745',
+                    buttonMainFg: '#FFFFFF',
+                    buttonCopyBg: '#005CC5',
+                    buttonCopyFg: '#FFFFFF',
+                },
+                'monokai': {
+                    name: 'Monokai (Dark)',
+                    bg: '#272822',
+                    fg: '#F8F8F2',
+                    comment: '#75715E',
+                    keyword: '#F92672',
+                    type: '#66D9EF',
+                    string: '#E6DB74',
+                    literal: '#AE81FF',
+                    function: '#A6E22E',
+                    inputBg: '#3E3D32',
+                    inputBorder: '#49483E',
+                    buttonMainBg: '#F92672',
+                    buttonMainFg: '#272822',
+                    buttonCopyBg: '#A6E22E',
+                    buttonCopyFg: '#272822',
+                },
+                'oceanic-next': {
+                    name: 'Oceanic Next (Dark)',
+                    bg: '#1B2B34',
+                    fg: '#CDD3DE',
+                    comment: '#65737E',
+                    keyword: '#EC5F67',
+                    type: '#99C794', 
+                    string: '#FFD479',
+                    literal: '#C594C5',
+                    function: '#6699CC',
+                    inputBg: '#2C3E4C',
+                    inputBorder: '#34495E',
+                    buttonMainBg: '#EC5F67',
+                    buttonMainFg: '#CDD3DE',
+                    buttonCopyBg: '#6699CC',
+                    buttonCopyFg: '#CDD3DE',
+                }
+            };
+
+            // Java Keywords and Types (unchanged)
+            const javaKeywords = [
+                'abstract', 'assert', 'break', 'case', 'catch', 'continue', 'default', 
+                'do', 'else', 'enum', 'extends', 'final', 'finally', 'for', 'goto', 
+                'if', 'implements', 'import', 'instanceof', 'interface', 'native', 
+                'new', 'package', 'private', 'protected', 'public', 'return', 
+                'static', 'strictfp', 'super', 'switch', 'synchronized', 'this', 
+                'throw', 'throws', 'transient', 'try', 'volatile', 'while', 'void'
+            ];
+            const javaTypes = [
+                'boolean', 'byte', 'char', 'double', 'float', 'int', 'long', 'short', 
+                'Boolean', 'Byte', 'Character', 'Double', 'Float', 'Integer', 'Long', 
+                'Short', 'String', 'System', 'Object', 'Class', 'Exception', 'Thread'
+            ];
+            const javaFunctions = ['main', 'println', 'print', 'equals', 'hashCode', 'toString', 'getClass', 'length'];
+
+            // Combined regex patterns (unchanged)
+            const regexPatterns = [
+                { pattern: /(\/\/.*)/g, type: 'comment' },
+                // String pattern uses DOUBLE quotes: "(\.|[^"\\])*"
+                { pattern: /("(\\.|[^"\\])*")/g, type: 'string' },
+                { pattern: /\b(true|false|null|[0-9]+(\.[0-9]+)?)([fLdF]?)\b/g, type: 'literal' },
+                { pattern: new RegExp(`\\b(${javaKeywords.join('|')})\\b`, 'g'), type: 'keyword' },
+                { pattern: new RegExp(`\\b(${javaTypes.join('|')})\\b`, 'g'), type: 'type' },
+                { pattern: new RegExp(`\\b(${javaFunctions.join('|')})\\b(?=\\s*\\()`, 'g'), type: 'function' }
+            ];
+
+            function wrapToken(match, color) {
+                // FIX: Use SINGLE quotes for the style attribute value (style='...').
+                // This prevents the Java string regex (which looks for double quotes)
+                // from accidentally matching and corrupting the injected HTML attributes.
+                const styleAttrValue = "color: " + color + "; display: inline; " + fontStylesForCopy;
+                return "<span style='" + styleAttrValue + "'>" + match + "</span>";
+            }
+
+            function convertCode() {
+                let code = javaInput.value;
+                let styledCode = code;
+
+                // Only escape the ampersand (&)
+                styledCode = styledCode.replace(/&/g, '&amp;');
+                                       
+                // --- Simple Tokenizing Logic ---
+                const lines = styledCode.split('\n');
+                let processedLines = [];
+
+                for (let line of lines) {
+                    let currentLine = line;
+                    
+                    // Apply patterns sequentially
+                    regexPatterns.forEach(item => {
+                        const styleColor = activeColors[item.type];
+                        const regex = item.pattern;
+                        
+                        currentLine = currentLine.replace(regex, (match) => {
+                            // This check prevents an already-wrapped token from being processed
+                            if (match.includes('<span')) {
+                                return match; 
+                            }
+                            return wrapToken(match, styleColor);
+                        });
+                    });
+
+                    processedLines.push(currentLine);
+                }
+
+                outputCode.innerHTML = processedLines.join('\n');
+            }
+
+            function switchTheme(themeName) {
+                const theme = themes[themeName];
+                activeColors = theme; // Set the global active colors
+
+                // 1. Update Global Body Styles (Background & Text)
+                document.body.style.backgroundColor = theme.bg;
+                document.body.style.color = theme.fg; 
+
+                // 2. Update Dynamic CSS Variables (for scrollbar, etc.)
+                document.documentElement.style.setProperty('--theme-bg', theme.bg);
+                document.documentElement.style.setProperty('--theme-fg', theme.fg);
+                document.documentElement.style.setProperty('--theme-input-bg', theme.inputBg);
+                document.documentElement.style.setProperty('--theme-border', theme.inputBorder);
+                document.documentElement.style.setProperty('--theme-comment', theme.comment);
+                document.documentElement.style.setProperty('--theme-function', theme.function);
+                
+                // 3. Update Input/Output Container Styles
+                javaInput.style.backgroundColor = theme.inputBg;
+                javaInput.style.borderColor = theme.inputBorder;
+                javaInput.style.color = theme.fg;
+                
+                // Also update the theme selector itself to match the new dark/light input style
+                themeSelector.style.backgroundColor = theme.inputBg;
+                themeSelector.style.borderColor = theme.inputBorder;
+                themeSelector.style.color = theme.fg;
+
+                outputCode.style.backgroundColor = theme.bg;
+                outputCode.style.color = theme.fg;
+                document.getElementById('outputContainer').style.borderColor = theme.inputBorder;
+                document.getElementById('outputContainer').style.backgroundColor = theme.bg;
+                
+                // 4. Update Button Styles (Convert)
+                convertButton.style.backgroundColor = theme.buttonMainBg;
+                convertButton.style.color = theme.buttonMainFg;
+                convertButton.classList.remove('focus:ring-[#FF79C6]/50'); // Remove old Dracula ring
+                convertButton.style.boxShadow = `0 4px 6px -1px ${theme.buttonMainBg}80, 0 2px 4px -2px ${theme.buttonMainBg}80`;
+
+
+                // 5. Update Button Styles (Copy)
+                copyButton.style.backgroundColor = theme.buttonCopyBg;
+                copyButton.style.color = theme.buttonCopyFg;
+
+                // 6. Re-convert the code with the new syntax colors
+                convertCode();
+            }
+
+            /* --- Copy Functionality (Updated for Robust Rich HTML Copy) --- */
+            function copyCode() {
+                const richContent = outputCode.innerHTML;
+                const currentTheme = themes[themeSelector.value];
+                
+                // Store original styles to revert later
+                const originalText = copyButton.textContent;
+                const originalBg = copyButton.style.backgroundColor;
+                const originalFg = copyButton.style.color;
+                
+                copyButton.textContent = '...'; 
+
+                // 1. Create a temporary container for rich HTML copy
+                const tempRichDiv = document.createElement('div');
+
+                // ONLY apply necessary positioning to hide it.
+                tempRichDiv.style.cssText = `
+                    position: absolute;
+                    left: -9999px;
+                `;
+                
+                // 2. Insert the styled code content into a <pre> tag.
+                //    All necessary structural and styling information for the "box" is on the <pre>.
+                tempRichDiv.innerHTML = `
+                    <pre style="
+                        margin: 0; 
+                        padding: 1rem; 
+                        /* Theme Colors */
+                        background-color: ${currentTheme.bg}; 
+                        color: ${currentTheme.fg};
+                        /* Box Styling */
+                        border: 1px solid ${currentTheme.inputBorder}; 
+                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                        border-radius: 0.5rem;
+                        /* Text Formatting */
+                        ${fontStylesForCopy}
+                        white-space: pre-wrap;
+                        word-break: break-all;
+                        line-height: 1.5;
+                        display: block;
+                    ">${richContent}</pre>
+                `;
+
+                document.body.appendChild(tempRichDiv);
+
+                // 3. Select the content of the rich div using the standard selection API
+                const selection = window.getSelection();
+                const range = document.createRange();
+                range.selectNodeContents(tempRichDiv);
+                selection.removeAllRanges();
+                selection.addRange(range);
+
+                let success = false;
+                try {
+                    // 4. Execute the copy command (copies selected HTML content)
+                    success = document.execCommand('copy');
+                } catch (err) {
+                    console.error('Rich copy command failed:', err);
+                }
+
+                // 5. Clean up
+                selection.removeAllRanges();
+                document.body.removeChild(tempRichDiv);
+
+                if (success) {
+                    // Success: Use a prominent success color 
+                    copyButton.textContent = 'Copied!';
+                    copyButton.style.backgroundColor = '#50FA7B';
+                    copyButton.style.color = '#282A36'; 
+                } else {
+                    // Failure: Use red
+                    copyButton.textContent = 'Failed to Copy';
+                    copyButton.style.backgroundColor = '#EF4444';
+                    copyButton.style.color = '#FFFFFF';
+                }
+
+                // Reset button text and style after 2 seconds
+                setTimeout(() => {
+                    copyButton.textContent = originalText;
+                    copyButton.style.backgroundColor = originalBg;
+                    copyButton.style.color = originalFg;
+                }, 2000);
+            }
+
+
+            // Initial setup
+            switchTheme(themeSelector.value);
+
+            // Event listeners
+            convertButton.addEventListener('click', convertCode);
+            copyButton.addEventListener('click', copyCode); 
+            themeSelector.addEventListener('change', (e) => switchTheme(e.target.value));
+        });
+    </script>
+</body>
+</html>
